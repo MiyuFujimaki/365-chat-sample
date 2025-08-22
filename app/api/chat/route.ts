@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
     };
     if (apiKey) {
-      headers["Authorization"] = `Bearer ${apiKey}`;
+      headers["api-key"] = `${apiKey}`;
     }
 
     const upstream = await fetch(apiUrl, {
