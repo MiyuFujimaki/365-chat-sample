@@ -18,4 +18,155 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* チャットアプリケーション用の抽象化クラス */
+@layer components {
+  /* ヘッダー */
+  .header-fixed {
+    @apply fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm;
+  }
+  
+  .header-container {
+    @apply max-w-4xl mx-auto px-4 py-4;
+  }
+  
+  .header-title {
+    @apply text-2xl sm:text-3xl font-semibold tracking-tight text-black;
+  }
+  
+  /* フッター */
+  .footer-fixed {
+    @apply fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-sm;
+  }
+  
+  .footer-container {
+    @apply max-w-4xl mx-auto px-4 py-4;
+  }
+  
+  .input-group {
+    @apply flex items-end gap-2 mb-3;
+  }
+  
+  .input-textarea {
+    @apply flex-1 resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-[15px] leading-6 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 max-h-40 min-h-10;
+  }
+  
+  .send-button {
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  /* メインコンテンツエリア */
+  .main-container {
+    @apply flex-1 flex flex-col max-w-6xl mx-auto w-full px-[20px] pt-24 pb-32;
+  }
+  
+  .chat-scroll-area {
+    @apply flex-1 overflow-y-auto sm:p-4 space-y-4;
+  }
+  
+  /* チャットメッセージ */
+  .message-container {
+    @apply flex items-start gap-3;
+  }
+  
+  .user-message-wrapper {
+    @apply flex items-start gap-5 max-w-[85%];
+  }
+  
+  .user-message-bubble {
+    @apply bg-blue-50 border border-blue-200 text-gray-800 px-4 py-3 rounded-2xl rounded-tr-sm shadow-sm relative;
+  }
+  
+  .assistant-message-bubble {
+    @apply bg-blue-50 border border-blue-200 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm relative max-w-[85%];
+  }
+  
+  .message-content {
+    @apply max-w-none leading-relaxed text-[15px] text-gray-800;
+  }
+  
+  /* マークダウン見出しのスタイル */
+  .message-content h1 {
+    @apply text-2xl font-bold mt-6 mb-4 text-gray-900 border-b-2 border-gray-300 pb-2;
+  }
+  
+  .message-content h2 {
+    @apply text-xl font-semibold mt-5 mb-3 text-gray-800 border-b border-gray-200 pb-1;
+  }
+  
+  .message-content h3 {
+    @apply text-lg font-semibold mt-4 mb-2 text-gray-700;
+  }
+  
+  .message-content h4 {
+    @apply text-base font-medium mt-3 mb-2 text-gray-700;
+  }
+  
+  .message-content h5 {
+    @apply text-sm font-medium mt-2 mb-1 text-gray-600;
+  }
+  
+  .message-content h6 {
+    @apply text-xs font-medium mt-2 mb-1 text-gray-600;
+  }
+  
+  .message-content p {
+    @apply my-1;
+  }
+  
+  .message-content ul {
+    @apply list-disc pl-5 space-y-1 my-2;
+  }
+  
+  .message-content li {
+    @apply my-1;
+  }
+  
+  .message-content code {
+    @apply bg-gray-100 rounded px-1 py-0.5 text-sm font-mono;
+  }
+  
+  .message-content pre {
+    @apply bg-gray-900 text-gray-100 rounded-md p-3 overflow-auto text-sm my-3;
+  }
+  
+  .message-content a {
+    @apply text-blue-600 underline hover:text-blue-800;
+  }
+  
+  .message-content strong {
+    @apply font-semibold;
+  }
+  
+  .message-content em {
+    @apply italic;
+  }
+  
+  /* アバター */
+  .avatar-user {
+    @apply w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden;
+  }
+  
+  .avatar-assistant {
+    @apply w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden;
+  }
+  
+  /* 吹き出しの尻尾 */
+  .bubble-tail-right {
+    @apply absolute top-0 -right-2 w-0 h-0 border-l-8 border-l-blue-200 border-t-8 border-t-transparent;
+  }
+  
+  .bubble-tail-left {
+    @apply absolute top-0 -left-2 w-0 h-0 border-r-8 border-r-blue-200 border-t-8 border-t-transparent;
+  }
+  
+  /* ローディングインジケーター */
+  .loading-dots {
+    @apply flex items-center space-x-1;
+  }
+  
+  .loading-dot {
+    @apply w-2 h-2 bg-blue-400 rounded-full animate-bounce;
+  }
 } 
