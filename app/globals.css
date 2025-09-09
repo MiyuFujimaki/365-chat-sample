@@ -41,15 +41,15 @@ body {
   }
   
   .footer-container {
-    @apply max-w-4xl mx-auto px-4 py-4;
+    @apply max-w-4xl mx-auto px-4 py-6;
   }
   
   .input-group {
-    @apply flex items-end gap-2 mb-3;
+    @apply flex items-center gap-2 mb-3;
   }
   
   .input-textarea {
-    @apply flex-1 resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-[15px] leading-6 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 max-h-40 min-h-10;
+    @apply flex-1 resize-none rounded-xl border border-gray-300 bg-white px-3 py-3 text-[15px] leading-6 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 max-h-48 min-h-16;
   }
   
   .send-button {
@@ -58,7 +58,7 @@ body {
   
   /* メインコンテンツエリア */
   .main-container {
-    @apply flex-1 flex flex-col max-w-6xl mx-auto w-full px-[20px] pt-24 pb-32;
+    @apply flex-1 flex flex-col max-w-6xl mx-auto w-full px-[20px] pt-24 pb-36;
   }
   
   .chat-scroll-area {
@@ -168,5 +168,34 @@ body {
   
   .loading-dot {
     @apply w-2 h-2 bg-blue-400 rounded-full animate-bounce;
+  }
+  
+  /* アンケート */
+  .survey-container {
+    @apply mt-4 pt-3 border-t border-blue-200;
+  }
+  
+  .survey-question {
+    @apply text-sm text-gray-600 mb-3 font-medium;
+  }
+  
+  .survey-buttons {
+    @apply flex gap-2;
+  }
+  
+  .survey-button {
+    @apply px-3 py-1.5 text-sm rounded-lg border transition-colors duration-200;
+  }
+  
+  .survey-button-good {
+    @apply bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300;
+  }
+  
+  .survey-button-bad {
+    @apply bg-red-50 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-300;
+  }
+  
+  .survey-response {
+    @apply flex items-center justify-between;
   }
 } 

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "session_1757317198368_9w8a4n",
+    "title": "チャット",
+    "created_at": "2025-09-08T07:40:44.619Z",
+    "updated_at": "2025-09-08T08:58:55.066Z",
+    "message_count": 3,
+    "user_ip": "::1"
+  },
+  {
+    "id": "session_1757321428936_7y67b4",
+    "title": "チャット",
+    "created_at": "2025-09-08T08:50:52.517Z",
+    "updated_at": "2025-09-08T08:52:56.920Z",
+    "message_count": 5,
+    "user_ip": "::1"
+  },
+  {
+    "id": "session_1757377842294_imx3ht",
+    "title": "アプリの画面が真っ白です。",
+    "created_at": "2025-09-09T00:42:00.915Z",
+    "updated_at": "2025-09-09T00:42:00.915Z",
+    "message_count": 0,
+    "user_ip": "::1"
+  }
+]

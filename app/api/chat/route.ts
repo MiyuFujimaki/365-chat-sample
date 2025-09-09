@@ -1,4 +1,50 @@
 import { NextResponse } from "next/server";
+import { saveSurveyResponse, saveChatMessage } from "../../../lib/database";
+
+// アンケート送信用のエンドポイント
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { messageId, rating } = body;
+    
+    if (!messageId || !rating) {
+      return NextResponse.json(
+        { error: "messageId and rating are required" },
+        { status: 400 }
+      );
+    }
+    
+    if (rating !== 'good' && rating !== 'bad') {
+      return NextResponse.json(
+        { error: "rating must be 'good' or 'bad'" },
+        { status: 400 }
+      );
+    }
+    
+    // ユーザー情報を取得
+    const userIp = request.headers.get('x-forwarded-for') || 
+                   request.headers.get('x-real-ip') || 
+                   'unknown';
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    
+    // データベースにアンケート結果を保存
+    const responseId = saveSurveyResponse(messageId, rating, userIp, userAgent);
+    
+    console.log(`Survey response saved: ID ${responseId}, Message ${messageId} rated as ${rating}`);
+    
+    return NextResponse.json({ 
+      success: true, 
+      responseId,
+      message: "Survey response saved successfully" 
+    });
+  } catch (error) {
+    console.error("Failed to save survey response:", error);
+    return NextResponse.json(
+      { error: "Failed to process survey response" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   const apiUrl = process.env.CHAT_API_URL;

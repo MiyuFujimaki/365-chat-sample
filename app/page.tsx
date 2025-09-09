@@ -10,10 +10,29 @@ interface ChatMessage {
   id: string;
   role: ChatRole;
   content: string;
+  showSurvey?: boolean;
+}
+
+interface SurveyResponse {
+  messageId: string;
+  rating: 'good' | 'bad';
+}
+
+interface ChatSession {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  user_ip: string;
 }
 
 function generateMessageId(): string {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function generateSessionId(): string {
+  return `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // 簡易Markdown → HTML 変換（安全のため一度エスケープし、必要なタグのみ付与）
@@ -228,6 +247,10 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [inputRows, setInputRows] = useState(1);
+  const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => generateSessionId());
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending]);
@@ -251,6 +274,23 @@ export default function ChatPage() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
+
+  // セッション一覧を読み込み
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
+  const loadSessions = async () => {
+    try {
+      const response = await fetch('/api/chat/sessions');
+      if (response.ok) {
+        const data = await response.json();
+        setSessions(data.sessions || []);
+      }
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+    }
+  };
 
   // メッセージ送信時とAI応答完了時にスクロール
   useEffect(() => {
@@ -281,6 +321,33 @@ export default function ChatPage() {
     setInput("");
     setIsSending(true);
     setMessages((prev: ChatMessage[]) => [...prev, userMessage]);
+    
+    // ユーザーメッセージをデータベースに保存
+    try {
+      await fetch("/api/chat/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId: userMessage.id,
+          role: "user",
+          content: userMessage.content,
+          sessionId: currentSessionId,
+        }),
+      });
+      
+      // セッションを更新（最初のメッセージの場合はタイトルを設定）
+      const sessionTitle = messages.length === 1 ? text.slice(0, 30) + (text.length > 30 ? '...' : '') : 'チャット';
+      await fetch("/api/chat/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          title: sessionTitle,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to save user message:", error);
+    }
 
     try {
       // まずAPIを試行
@@ -304,8 +371,25 @@ export default function ChatPage() {
           id: generateMessageId(),
           role: "assistant",
           content: replyText || "（応答形式を解釈できませんでした）",
+          showSurvey: true,
         };
         setMessages((prev: ChatMessage[]) => [...prev, assistantMessage]);
+        
+        // アシスタントメッセージをデータベースに保存
+        try {
+          await fetch("/api/chat/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messageId: assistantMessage.id,
+              role: "assistant",
+              content: assistantMessage.content,
+              sessionId: currentSessionId,
+            }),
+          });
+        } catch (error) {
+          console.error("Failed to save assistant message:", error);
+        }
       } else {
         // APIエラーの場合、Mockモードに切り替え
         const text = await response.text().catch(() => "");
@@ -317,6 +401,7 @@ export default function ChatPage() {
         id: generateMessageId(),
         role: "assistant",
         content: `エラーが発生しました。時間をおいて再試行してください。\n詳細: ${message}`,
+        showSurvey: false,
       };
       setMessages((prev: ChatMessage[]) => [...prev, assistantMessage]);
     } finally {
@@ -332,44 +417,223 @@ export default function ChatPage() {
     }
   }
 
-  return (
-    <div className="min-h-dvh bg-white text-black flex flex-col">
-      {/* 固定ヘッダー */}
-      <header className="header-fixed">
-        <div className="header-container">
-          <h1 className="header-title" style={{ fontFamily: '"Noto Sans JP"' }}>
-            はまぎん365照会AIチャット
-          </h1>
-        </div>
-      </header>
+  // セッションを選択
+  const selectSession = async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/chat/sessions/${sessionId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const sessionMessages = data.messages.map((msg: any) => ({
+          id: msg.message_id,
+          role: msg.role,
+          content: msg.content,
+          showSurvey: msg.role === 'assistant' && !msg.survey_rating // アンケート未回答のアシスタントメッセージのみアンケートを表示
+        }));
+        
+        setCurrentSessionId(sessionId);
+        setMessages(sessionMessages);
+        setSidebarOpen(false);
+      }
+    } catch (error) {
+      console.error('Failed to load session:', error);
+    }
+  };
 
-      {/* 固定フッター（入力部分と戻るボタン） */}
-      <div className="footer-fixed">
-        <div className="footer-container">
-          <div className="input-group">
-            <textarea
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="メッセージを入力（Enterで送信、Shift+Enterで改行）"
-              className="input-textarea"
-              rows={inputRows}
-            />
+  // 新しいチャットを開始
+  const startNewChat = () => {
+    const newSessionId = generateSessionId();
+    setCurrentSessionId(newSessionId);
+    setMessages([
+      {
+        id: generateMessageId(),
+        role: "assistant",
+        content: "こんにちは！はまぎん365照会AIチャットです。ご用件を入力してください。",
+      },
+    ]);
+    setSidebarOpen(false);
+  };
+
+  // セッションを削除
+  const deleteSession = async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/chat/sessions?sessionId=${sessionId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        await loadSessions();
+        if (sessionId === currentSessionId) {
+          startNewChat();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+    }
+  };
+
+  // アンケート回答処理
+  async function handleSurveyResponse(messageId: string, rating: 'good' | 'bad') {
+    setSurveyResponses(prev => [...prev, { messageId, rating }]);
+    
+    // アンケートを非表示にする
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId ? { ...msg, showSurvey: false } : msg
+    ));
+    
+    // アンケート結果をAPIに送信
+    try {
+      await fetch("/api/chat", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, rating }),
+      });
+    } catch (error) {
+      console.error("Failed to send survey response:", error);
+    }
+    
+    // お礼メッセージを追加
+    const thankYouMessage: ChatMessage = {
+      id: generateMessageId(),
+      role: "assistant",
+      content: "ご回答ありがとうございます。",
+      showSurvey: false,
+    };
+    setMessages(prev => [...prev, thankYouMessage]);
+  }
+
+  return (
+    <div className="min-h-dvh bg-white text-black flex">
+      {/* オーバーレイ（モバイル用） */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
+      {/* サイドバー */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-80 bg-gray-50 border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:translate-x-0 lg:static lg:inset-0`}>
+        <div className="flex flex-col h-full">
+          {/* サイドバーヘッダー */}
+          <div className="p-4 border-b border-gray-200 pt-20">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">チャット履歴</h2>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden p-1 rounded-md hover:bg-gray-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             <button
-              onClick={handleSend}
-              disabled={!canSend}
-              className="send-button"
-              aria-busy={isSending}
+              onClick={startNewChat}
+              className="w-full mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              {isSending ? "送信中..." : "送信"}
+              新しいチャット
             </button>
+          </div>
+          
+          {/* セッション一覧 */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {sessions.length === 0 ? (
+              <p className="text-gray-500 text-center">まだチャット履歴がありません</p>
+            ) : (
+              <div className="space-y-2">
+                {sessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      session.id === currentSessionId
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-white border-gray-200 hover:bg-gray-50'
+                    }`}
+                    onClick={() => selectSession(session.id)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-medium text-gray-900 truncate">
+                          {session.title}
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(session.updated_at).toLocaleDateString('ja-JP')}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {session.message_count} メッセージ
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteSession(session.id);
+                        }}
+                        className="ml-2 p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* メインコンテンツエリア（スクロール可能） */}
-      <div className="main-container">
-        <div ref={scrollRef} className="chat-scroll-area">
+      {/* メインコンテンツ */}
+      <div className="flex-1 flex flex-col">
+        {/* 固定ヘッダー */}
+        <header className="header-fixed">
+          <div className="header-container">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="lg:hidden mr-3 p-2 rounded-md hover:bg-gray-100"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+                <h1 className="header-title" style={{ fontFamily: '"Noto Sans JP"' }}>
+                  はまぎん365照会AIチャット
+                </h1>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* 固定フッター（入力部分と戻るボタン） */}
+        <div className="footer-fixed">
+          <div className="footer-container">
+            <div className="input-group">
+              <textarea
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder="メッセージを入力（Enterで送信、Shift+Enterで改行）"
+                className="input-textarea"
+                rows={inputRows}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!canSend}
+                className="send-button"
+                aria-busy={isSending}
+              >
+                {isSending ? "送信中..." : "送信"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* メインコンテンツエリア（スクロール可能） */}
+        <div className="main-container">
+          <div ref={scrollRef} className="chat-scroll-area">
           {messages.map((m) => (
             <div key={m.id} className="message-container">
               {m.role === "user" ? (
@@ -423,6 +687,41 @@ export default function ChatPage() {
                   </div>
                   <div className="assistant-message-bubble">
                     <div className="message-content" dangerouslySetInnerHTML={{ __html: markdownToHtml(m.content) }} />
+                    {/* アンケート表示 */}
+                    {m.showSurvey && (
+                      <div className="survey-container">
+                        <div className="survey-question">回答の精度はいかがでしたでしょうか？</div>
+                        <div className="survey-buttons">
+                          <button
+                            onClick={() => handleSurveyResponse(m.id, 'good')}
+                            className="survey-button survey-button-good"
+                          >
+                            よかった
+                          </button>
+                          <button
+                            onClick={() => handleSurveyResponse(m.id, 'bad')}
+                            className="survey-button survey-button-bad"
+                          >
+                            悪かった
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {/* アンケート回答済み表示 */}
+                    {!m.showSurvey && m.role === 'assistant' && (m as any).survey_rating && (
+                      <div className="survey-container">
+                        <div className="survey-response">
+                          <span className={`text-sm font-medium ${
+                            (m as any).survey_rating === 'good' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            評価: {(m as any).survey_rating === 'good' ? 'よかった' : '悪かった'}
+                          </span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            ({new Date((m as any).survey_responded_at).toLocaleString('ja-JP')})
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     {/* 吹き出しの尻尾 */}
                     <div className="bubble-tail-left"></div>
                   </div>
@@ -465,6 +764,7 @@ export default function ChatPage() {
               <div className="flex-1"></div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>
