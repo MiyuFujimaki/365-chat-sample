@@ -82,3 +82,5 @@
 - DB スキーマ設計を工夫しないと「特定のユーザーにオペレーターが発話」機能が複雑化する  
 - ベンダーロックイン  
 - OSS 自前運用に比べると自由度は低い  
+
+** github token : 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
